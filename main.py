@@ -102,7 +102,7 @@ def test(model, t, batch_generator, standard, beta, logger):
 
         f_asp_start_scores, f_asp_end_scores = model(batch_dict['forward_asp_query'],
                                                      batch_dict['forward_asp_query_mask'],
-                                                     batch_dict['forward_asp_query_seg'], 0)
+                                                     batch_dict['forward_asp_query_seg'], 0, 'AA')
         f_asp_start_scores = F.softmax(f_asp_start_scores[0], dim=1)
         f_asp_end_scores = F.softmax(f_asp_end_scores[0], dim=1)
         f_asp_start_prob, f_asp_start_ind = torch.max(f_asp_start_scores, dim=1)
@@ -142,7 +142,7 @@ def test(model, t, batch_generator, standard, beta, logger):
             opinion_query_mask = torch.ones(opinion_query.size(1)).float().cuda().unsqueeze(0)
             opinion_query_seg = torch.tensor(opinion_query_seg).long().cuda().unsqueeze(0)
 
-            f_opi_start_scores, f_opi_end_scores = model(opinion_query, opinion_query_mask, opinion_query_seg, 0)
+            f_opi_start_scores, f_opi_end_scores = model(opinion_query, opinion_query_mask, opinion_query_seg, 0, 'AO')
 
             f_opi_start_scores = F.softmax(f_opi_start_scores[0], dim=1)
             f_opi_end_scores = F.softmax(f_opi_end_scores[0], dim=1)
@@ -184,7 +184,7 @@ def test(model, t, batch_generator, standard, beta, logger):
         # backward q_1
         b_opi_start_scores, b_opi_end_scores = model(batch_dict['backward_opi_query'],
                                                      batch_dict['backward_opi_query_mask'],
-                                                     batch_dict['backward_opi_query_seg'], 0)
+                                                     batch_dict['backward_opi_query_seg'], 0, 'OO')
         b_opi_start_scores = F.softmax(b_opi_start_scores[0], dim=1)
         b_opi_end_scores = F.softmax(b_opi_end_scores[0], dim=1)
         b_opi_start_prob, b_opi_start_ind = torch.max(b_opi_start_scores, dim=1)
@@ -227,7 +227,7 @@ def test(model, t, batch_generator, standard, beta, logger):
             aspect_query_mask = torch.ones(aspect_query.size(1)).float().cuda().unsqueeze(0)
             aspect_query_seg = torch.tensor(aspect_query_seg).long().cuda().unsqueeze(0)
 
-            b_asp_start_scores, b_asp_end_scores = model(aspect_query, aspect_query_mask, aspect_query_seg, 0)
+            b_asp_start_scores, b_asp_end_scores = model(aspect_query, aspect_query_mask, aspect_query_seg, 0, 'OA')
 
             b_asp_start_scores = F.softmax(b_asp_start_scores[0], dim=1)
             b_asp_end_scores = F.softmax(b_asp_end_scores[0], dim=1)
@@ -322,7 +322,7 @@ def test(model, t, batch_generator, standard, beta, logger):
             sentiment_query_mask = torch.ones(sentiment_query.size(1)).float().cuda().unsqueeze(0)
             sentiment_query_seg = torch.tensor(sentiment_query_seg).long().cuda().unsqueeze(0)
 
-            sentiment_scores = model(sentiment_query, sentiment_query_mask, sentiment_query_seg, 1)
+            sentiment_scores = model(sentiment_query, sentiment_query_mask, sentiment_query_seg, 1, '')
             sentiment_predicted = torch.argmax(sentiment_scores[0], dim=0).item()
 
             # 每个opinion对应一个三元组
@@ -447,7 +447,7 @@ def main(args, tokenize):
         model.load_state_dict(checkpoint['net'])
         model.eval()
 
-        batch_generator_test = Data.generate_fi_batches(dataset=test_dataset, batch_size=1, shuffle=False,
+        batch_generator_test = Data.generate_fi_batches(dataset=test_dataset, batch_size=1, num_worker=args.num_worker, shuffle=False,
                                                         ifgpu=args.ifgpu)
         # eval
         logger.info('evaluating......')
@@ -494,7 +494,7 @@ def main(args, tokenize):
             model.train()
             model.zero_grad()
 
-            batch_generator = Data.generate_fi_batches(dataset=train_dataset, batch_size=args.batch_size,
+            batch_generator = Data.generate_fi_batches(dataset=train_dataset, batch_size=args.batch_size, num_worker=args.num_worker, 
                                                        ifgpu=args.ifgpu)
 
             for batch_index, batch_dict in enumerate(batch_generator):
@@ -506,7 +506,8 @@ def main(args, tokenize):
                     batch_dict['forward_asp_query'].long(),
                     batch_dict['forward_asp_query_mask'],
                     batch_dict['forward_asp_query_seg'],
-                    0
+                    0,
+                    'AA'
                 )
                 f_asp_loss = utils.calculate_entity_loss(
                     f_aspect_start_scores,
@@ -519,7 +520,8 @@ def main(args, tokenize):
                     batch_dict['backward_opi_query'].long(),
                     batch_dict['backward_opi_query_mask'],
                     batch_dict['backward_opi_query_seg'],
-                    0
+                    0,
+                    'OO'
                 )
                 b_opi_loss = utils.calculate_entity_loss(b_opi_start_scores, b_opi_end_scores,
                                                                     batch_dict['backward_opi_answer_start'],
@@ -529,7 +531,8 @@ def main(args, tokenize):
                     batch_dict['forward_opi_query'].view(-1, batch_dict['forward_opi_query'].size(-1)),
                     batch_dict['forward_opi_query_mask'].view(-1, batch_dict['forward_opi_query_mask'].size(-1)),
                     batch_dict['forward_opi_query_seg'].view(-1, batch_dict['forward_opi_query_seg'].size(-1)),
-                    0)
+                    0,
+                    'AO')
                 f_opi_loss = utils.calculate_entity_loss(f_opi_start_scores, f_opi_end_scores,
                                                          batch_dict['forward_opi_answer_start'].view(-1, batch_dict['forward_opi_answer_start'].size(-1)),
                                                          batch_dict['forward_opi_answer_end'].view(-1, batch_dict['forward_opi_answer_end'].size(-1)))
@@ -538,7 +541,8 @@ def main(args, tokenize):
                     batch_dict['backward_asp_query'].view(-1, batch_dict['backward_asp_query'].size(-1)),
                     batch_dict['backward_asp_query_mask'].view(-1, batch_dict['backward_asp_query_mask'].size(-1)),
                     batch_dict['backward_asp_query_seg'].view(-1, batch_dict['backward_asp_query_seg'].size(-1)),
-                    0)
+                    0,
+                    'OA')
                 b_asp_loss = utils.calculate_entity_loss(b_asp_start_scores, b_asp_end_scores,
                                                          batch_dict['backward_asp_answer_start'].view(-1, batch_dict['backward_asp_answer_start'].size(-1)),
                                                          batch_dict['backward_asp_answer_end'].view(-1, batch_dict['backward_asp_answer_end'].size(-1)))
@@ -546,7 +550,7 @@ def main(args, tokenize):
                 sentiment_scores = model(batch_dict['sentiment_query'].view(-1, batch_dict['sentiment_query'].size(-1)),
                                          batch_dict['sentiment_query_mask'].view(-1, batch_dict['sentiment_query_mask'].size(-1)),
                                          batch_dict['sentiment_query_seg'].view(-1, batch_dict['sentiment_query_seg'].size(-1)),
-                                         1)
+                                         1, '')
                 sentiment_loss = utils.calculate_sentiment_loss(sentiment_scores, batch_dict['sentiment_answer'].view(-1))
 
                 # loss
@@ -566,7 +570,7 @@ def main(args, tokenize):
                                        round(sentiment_loss.item(), 4)))
 
             # validation
-            batch_generator_dev = Data.generate_fi_batches(dataset=dev_dataset, batch_size=1, shuffle=False,
+            batch_generator_dev = Data.generate_fi_batches(dataset=dev_dataset, batch_size=1, num_worker=args.num_worker, shuffle=False,
                                                            ifgpu=args.ifgpu)
             f1 = test(model, tokenize, batch_generator_dev, dev_standard, args.inference_beta, logger)
             # save model and optimizer
@@ -577,7 +581,7 @@ def main(args, tokenize):
                 torch.save(state, args.save_model_path)
 
             # test
-            batch_generator_test = Data.generate_fi_batches(dataset=test_dataset, batch_size=1, shuffle=False,
+            batch_generator_test = Data.generate_fi_batches(dataset=test_dataset, batch_size=1, num_worker=args.num_worker, shuffle=False,
                                                             ifgpu=args.ifgpu)
             f1 = test(model, tokenize, batch_generator_test, test_standard, args.inference_beta, logger)
 
@@ -588,26 +592,27 @@ def main(args, tokenize):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Bidirectional MRC-based sentiment triplet extraction')
-    parser.add_argument('--data_path', type=str, default="D:\Python_Project\\thesis\BMRC-main\data\\")
+    parser.add_argument('--data_path', type=str, default="./data/")
     parser.add_argument('--log_path', type=str, default="./log/")
-    parser.add_argument('--data_name', type=str, default="14lap", choices=["14lap", "14rest", "15rest", "16rest"])
+    parser.add_argument('--data_name', type=str, default="14rest", choices=["14lap", "14rest", "15rest", "16rest"])
 
     parser.add_argument('--mode', type=str, default="train", choices=["train", "test"])
 
     parser.add_argument('--reload', type=bool, default=False)
     parser.add_argument('--checkpoint_path', type=str, default="./model/14lap/modelFinal.model")
     parser.add_argument('--save_model_path', type=str, default="./model/")
-    parser.add_argument('--model_name', type=str, default="1")
+    parser.add_argument('--model_name', type=str, default="5")
 
     # model hyper-parameter
-    parser.add_argument('--bert_model_type', type=str, default="bert-base-uncased")
-    parser.add_argument('--hidden_size', type=int, default=768)
+    parser.add_argument('--bert_model_type', type=str, default="bert-large-uncased")
+    parser.add_argument('--hidden_size', type=int, default=1024)
     parser.add_argument('--inference_beta', type=float, default=0.8)
 
     # training hyper-parameter
     parser.add_argument('--ifgpu', type=bool, default=True)
     parser.add_argument('--epoch_num', type=int, default=40)
     parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--num_worker', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--tuning_bert_rate', type=float, default=1e-5)
     parser.add_argument('--warm_up', type=float, default=0.1)

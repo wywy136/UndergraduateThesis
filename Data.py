@@ -144,9 +144,9 @@ class ReviewDataset(Dataset):
                 }
 
 
-def generate_fi_batches(dataset, batch_size, shuffle=True, drop_last=True, ifgpu=True):
+def generate_fi_batches(dataset, batch_size, num_worker, shuffle=True, drop_last=True, ifgpu=True):
     dataloader = DataLoader(dataset=dataset, batch_size=batch_size,
-                            shuffle=shuffle, drop_last=drop_last)
+                            shuffle=shuffle, drop_last=drop_last, num_workers=num_worker)
 
     for data_dict in dataloader:
         out_dict = {}
